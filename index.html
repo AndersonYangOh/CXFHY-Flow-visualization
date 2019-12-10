@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>中国联通研究院</title>
+    <link rel="stylesheet" href="leaflet.css">
+    <style>
+        html, body, #map {
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+	<div id="map"></div>
+	<script src="main.min.js"></script>
+	<script>
+		var  getNodes = function()
+		{
+        	var result = [];  
+        	var temp = {}; 
+        	var URL = "test_ajax.json";
+        	var index = parseInt(Math.random()*5+1, 10);
+        	URL += index;
+        	alert(index);
+        	$.ajax({  
+                url: URL,  
+                dataType: "json",  
+                type: "GET",  
+                contentType: "json",  
+                async: false,  
+                success : function(data){ 
+                    $.each(data.links, function(i, item){  
+                        temp = {name:item.toName.toString(), value:item.value};   
+                        result.push(temp);
+                    })  
+                //alert(result);
+                	},  
+            	});  
+            	return result;  
+        	};  
+  
+	        var getLinks = function()
+	        {
+	            var result = [];  
+	            var temp = {}; 
+	            //var URL = "test_ajax.json";
+	            var url_head = "test_ajax";
+				var url_tail = ".json";
+				var index = parseInt(Math.random()*5+1, 10);
+				var url = url_head + index + url_tail;
+				//alert(url);
+	            $.ajax({  
+	                url: url,  
+                type: "GET",  
+                contentType: "json",  
+                async: false,  
+                success : function(data){ 
+                    	$.each(data.links, function(i, item){  
+                    	//alert(item.toName.toString());
+                        temp = [{name:item.fromName.toString()}, {name:item.toName.toString(), value:item.value}];
+                        result.push(temp); 
+                	})
+                //alert(result);
+                },
+            });  
+            return result;  
+        }; 
+		
+	    var map = L.map('map',{
+	    	minZoom: 4,
+        	maxZoom: 4
+	    });
+	    map.dragging.disable();
+	    //map.scrollWheelZoom.disable();  
+
+	    var baseLayers = {
+	        'GeoQ灰色底图': L.tileLayer('http://map.geoq.cn/ArcGIS/rest/services/ChinaOnlineStreetPurplishBlue/MapServer/tile/{z}/{y}/{x}').addTo(map)
+	    };
+	
+	    map.setView(L.latLng(34.550339, 104.114129), 4);
+	    var overlay = new L.echartsLayer3(map, echarts);
+	    var chartsContainer = overlay.getEchartsContainer();
+	    var myChart = overlay.initECharts(chartsContainer);
+	
+	    var geoCoordMap = {
+		    '上海': [121.4648,31.2891],
+		    '北京': [116.4551,40.2539],
+		    '广州': [113.5107,23.2196]
+		};
+	
+	    var BJData = [
+		    [{name:'北京'}, {name:'上海',value:95}],
+		    [{name:'北京'}, {name:'广州',value:90}]
+		];
+		
+		var SHData = [
+		    [{name:'上海'},{name:'北京',value:95}],
+		    [{name:'上海'},{name:'广州',value:90}]
+		];
+		
+		var GZData = [
+		    [{name:'广州'},{name:'北京',value:95}],
+		    [{name:'广州'},{name:'上海',value:90}]
+		];
+	
+	    var planePath = 'path://M1705.06,1318.313v-89.254l-319.9-221.799l0.073-208.063c0.521-84.662-26.629-121.796-63.961-121.491c-37.332-0.305-64.482,36.829-63.961,121.491l0.073,208.063l-319.9,221.799v89.254l330.343-157.288l12.238,241.308l-134.449,92.931l0.531,42.034l175.125-42.917l175.125,42.917l0.531-42.034l-134.449-92.931l12.238-241.308L1705.06,1318.313z';
+		
+		//构造series结构中需要的data
+	    var convertData = function (data) {
+	        var res = [];
+	        for (var i = 0; i < data.length; i++) {
+	            var dataItem = data[i];
+	            var fromCoord = geoCoordMap[dataItem[0].name];
+	            var toCoord = geoCoordMap[dataItem[1].name];
+	            if (fromCoord && toCoord) {
+	                res.push([{
+	                    coord: fromCoord
+	                }, {
+	                    coord: toCoord
+	                }]);
+	            }
+	        }
+	        return res;
+	    };
+	   
+	    //构造series数据结构
+		function make_series(data_series, data_cities){
+			data_cities.forEach(function (item, i) {
+				//series = [];
+			    data_series.push({
+			        name: item[0],
+			        type: 'lines',
+			        zlevel: 1,
+			        effect: {
+			            show: true,
+			            period: 6,
+			            trailLength: 0.7,
+			            color: '#fff',
+			            symbolSize: 3
+			        },
+			        lineStyle: {
+			            normal: {
+			                color: color[i],
+			                width: 0,
+			                curveness: 0.2
+			            }
+			        },
+			        data: convertData(item[1])
+			    },
+			    {
+			        name: item[0],
+			        type: 'lines',
+			        zlevel: 2,
+			        symbol: ['none', 'arrow'],
+			        symbolSize: 10,
+			        effect: {
+			            show: true,
+			            period: 6,
+			            trailLength: 0,
+			            //symbol: planePath,
+			            symbol: 'triangle',
+			            symbolSize: 8
+			        },
+			        lineStyle: {
+			            normal: {
+			                color: color[i],
+			                width: 1,
+			                opacity: 0.6,
+			                curveness: 0.2
+			            }
+			        },
+			        data: convertData(item[1])
+			    },
+			    {
+			        name: item[0],
+			        type: 'effectScatter',
+			        coordinateSystem: 'geo',
+			        zlevel: 2,
+			        rippleEffect: {
+			            brushType: 'stroke',
+			            scale:3
+			        },
+			        label: {
+			            normal: {
+			                show: true,
+			                position: 'right',
+			               // formatter: '{c}'
+			            }
+			        },
+			        symbolSize: function (val) {
+			            return val[2] / 4;
+			        },
+			        itemStyle: {
+			            normal: {
+			                color: color[i]
+			            }
+			        },
+			        data: item[1].map(function (dataItem) {
+			            return {
+			                name: dataItem[1].name,
+			                value: geoCoordMap[dataItem[1].name].concat([dataItem[1].value])
+			            };
+			        })
+			    });
+			});
+		}
+	
+		var color = ['#a6c84c', '#ffa022', '#46bee9'];
+	    var series = [];
+	    var cities = [];
+	    
+	    cities = [['北京', BJData], ['上海', SHData], ['广州', GZData]];	
+		//alert(cities[0].BJData[1][1].value);
+		//alert(cities[0][1][0][1].value);
+		make_series(series, cities);
+		
+	    option = {
+			//backgroundColor: '#404a59',
+	        title: {
+	            text: '中国联通研究院',
+	            subtext: '创新孵化云数据中心流量可视化',
+	            left: 'center',
+	            textStyle: {
+	                color: '#fff'
+	            }
+	        },
+	        tooltip: {
+	            trigger: 'item'
+	        },
+	        legend: {
+	            orient: 'vertical',
+	            top: 'bottom',
+	            left: 'right',
+	            data: ['北京', '上海', '广州'],
+	            textStyle: {
+	                color: '#fff'
+	            },
+	            selectedMode: 'single'
+	        },
+	        geo: {
+	            map: '',
+	            label: {
+	                emphasis: {
+	                    show: false
+	                }
+	            },
+	            roam: true,
+	            itemStyle: {
+	                normal: {
+	                    areaColor: '#323c48',
+	                    borderColor: '#404a59'
+	                },
+	                emphasis: {
+	                    areaColor: '#2a333d'
+	                }
+	            }
+	        },
+	        dataRange: {
+				show: true,
+				min: 0,
+				max: 100,
+				splitList: [{
+						start: 80,
+						label: '拥塞'
+					},
+					{
+						start: 50,
+						end: 80,
+						label: '繁忙'
+					},
+					{
+						start: 0,
+						end: 49,
+						label: '畅通'
+					}
+				],
+				color: ['#ff3333', 'yellow', 'lime'],
+				textStyle: {
+					color: '#fff'
+				}
+			},
+	        series: series
+	    };
+	    // 使用刚指定的配置项和数据显示图表。
+	    overlay.setOption(option);
+	    
+	    //定时刷新函数
+	    function refresh(){
+				//BJData[0][1].value = 10;
+				//BJData[1][1].value = 20;
+				
+				BJData = getLinks();
+				cities = [['北京', BJData], ['上海', SHData], ['广州', GZData]];	
+				//alert(BJData[0][1].value);
+				//alert(BJData[1][1].value);
+				//alert(cities[0][1][0][1].value);
+				
+				var series_new = [];
+				make_series(series_new, cities);
+				
+				option = {series : series_new};
+				myChart.setOption(option);
+			}
+			
+		setInterval(function(){
+			refresh();
+			},3000
+		);       
+	</script>
+</body>
+</html>
